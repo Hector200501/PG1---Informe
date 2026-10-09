@@ -1,26 +1,861 @@
 ---
-title: "G3 - Informe"
-format: html
-editor: visual
+title: "Informe PG1 - Proyecto de Estadística"
+subtitle: "Relación entre las características técnicas de las laptops y el rendimiento académico en estudiantes de pregrado de UTEC (2026-2)"
+author: "Grupo 3 — [Integrante 1] (líder), [Integrante 2], [Integrante 3], [Integrante 4]"
+date: today
+lang: es
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contenido"
+    theme: flatly
+    embed-resources: true
+    fig-align: center
+    fig-width: 7.5
+    fig-height: 4.5
+execute:
+  echo: false
+  warning: false
+  message: false
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
-```{r}
-1 + 1
+```{r setup}
+paquetes <- c("dplyr", "readr", "stringr", "tidyr", "purrr", "tibble",
+              "ggplot2", "glue", "knitr", "forcats")
+faltan <- paquetes[!paquetes %in% rownames(installed.packages())]
+if (length(faltan) > 0) install.packages(faltan, repos = "https://cloud.r-project.org")
+library(dplyr)
+library(readr)
+library(stringr)
+library(tidyr)
+library(purrr)
+library(tibble)
+library(ggplot2)
+library(glue)
+library(knitr)
+library(forcats)
 ```
 
-You can add options to executable code like this
+# I. Introducción
 
-```{r}
-#| echo: false
-2 * 2
+## I.1 Relevancia
+
+Las laptops son la herramienta de trabajo principal de un estudiante de ingeniería: en ellas se programa, se corren simulaciones, se redactan informes y se rinden exámenes virtuales. Sin embargo, no todos los estudiantes cuentan con equipos de capacidad similar, lo que podría generar brechas en el desempeño académico que no dependen del esfuerzo del estudiante sino de su herramienta de trabajo. Este proyecto busca cuantificar, con datos recolectados directamente en UTEC, qué tan fuerte es esa relación.
+
+## I.2 Planificación
+
+<!-- AJUSTAR: nombres de integrantes, responsables y fechas son referenciales. Reemplazar por los reales del grupo. -->
+
+El trabajo se reparte entre los integrantes del grupo y cubre todo el ciclo: la primera parte (PG1) termina con este informe y la segunda (PG2) con la presentación final.
+
+```{mermaid}
+%%| label: fig-cronograma
+%%| fig-cap: "Cronograma del proyecto durante el ciclo 2026-2, con el responsable de cada tarea."
+gantt
+    title Cronograma del proyecto (ciclo 2026-2)
+    dateFormat  YYYY-MM-DD
+    axisFormat  %d/%m
+    section PG1
+    Definición del tema y objetivos - Integrante 1      :done, t1, 2026-08-24, 2026-09-04
+    Diseño del formulario y recolección - Todos         :done, t2, 2026-09-01, 2026-09-18
+    Selección de variables y limpieza - Integrante 2    :done, t3, 2026-09-14, 2026-09-25
+    Análisis descriptivo - Integrantes 3 y 4            :done, t4, 2026-09-28, 2026-10-08
+    Redacción y revisión del informe PG1 - Integrante 1 :active, t5, 2026-10-09, 2026-10-22
+    Entrega del informe PG1                             :milestone, m1, 2026-10-23, 0d
+    section PG2
+    Modelado probabilístico - Integrantes 2 y 3         :t6, 2026-10-26, 2026-11-13
+    Inferencia estadística - Integrantes 3 y 4          :t7, 2026-11-09, 2026-11-20
+    Redacción del informe PG2 - Integrante 1            :t8, 2026-11-16, 2026-11-27
+    Presentación final - Todos                          :t9, 2026-11-30, 2026-12-04
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+## I.3 Objetivos
+
+### I.3.1 Objetivo general
+
+Analizar la relación entre las características técnicas de las laptops y el rendimiento académico en los estudiantes de pregrado de la Universidad de Ingeniería y Tecnología (UTEC) en el periodo 2026-2.
+
+### I.3.2 Objetivos específicos
+
+**OE1:** Determinar cómo influyen la gama del procesador y la cantidad de programas abiertos en simultáneo en el promedio ponderado acumulado de los estudiantes de pregrado de UTEC en el periodo 2026-2.
+
+**OE2:** Evaluar el impacto de la memoria RAM y la frecuencia de congelamientos semanales del sistema en el promedio ponderado acumulado de los estudiantes de pregrado de UTEC en el periodo 2026-2.
+
+# II. Datos
+
+## II.1 Población objetivo
+
+**Población objetivo:** estudiantes de pregrado matriculados en UTEC durante el periodo 2026-2, de cualquier carrera y ciclo (1.° al 10.°).
+
+**Unidad muestral:** cada estudiante de pregrado de UTEC, matriculado en 2026-2, que respondió la encuesta administrada por los grupos del curso.
+
+## II.2 Tipo de muestreo
+
+Muestreo **no probabilístico por conveniencia**: el formulario se compartió en canales de WhatsApp y Discord de distintas secciones y carreras para reducir el sesgo hacia una sola facultad o ciclo. Los grupos aplicaron el mismo instrumento a submuestras distintas y las respuestas se consolidaron en una única base de datos.
+
+## II.3 Recolección de datos
+
+**Fuente primaria.** Los datos se recolectaron con un formulario de Google Forms (<https://docs.google.com/forms/d/e/1FAIpQLSeYWQOvUWvXzx7g4-y0jyPiSvPg6kEZOjCSMKFzUkYi94XE0Q/viewform?usp=header>) y se consolidaron en el archivo `Encuesta.csv`. La base cruda contiene 687 respuestas y 34 preguntas, de las cuales usamos las que se describen a continuación.
+
+## II.4 Variables
+
+Trabajamos con ocho variables, dos de cada tipo, definidas a partir de los objetivos específicos. Las restricciones de la última columna son los rangos de valores válidos que guían la limpieza (se justifican en la sección II.5).
+
+| Variable | Descripción | Tipo | Restricción | Rol en el estudio |
+|----|----|----|----|----|
+| `ram_gb` | Memoria RAM instalada | Cuantitativa discreta | Entre 2 y 64 GB | Independiente (OE2) |
+| `programas_simultaneos` | Programas abiertos en simultáneo | Cuantitativa discreta | Entre 0 y 30 programas | Independiente (OE1) |
+| `promedio_ponderado` | Promedio ponderado acumulado | Cuantitativa continua | Entre 0.01 y 20 de promedio | Dependiente (OE1 y OE2) |
+| `tiempo_estudio_horas` | Horas diarias de estudio con la laptop | Cuantitativa continua | Entre 0.01 y 16 horas | Variable de control |
+| `fabricante_procesador` | Fabricante del procesador | Cualitativa nominal | Intel, AMD, Apple u Otro | Independiente/control (OE1) |
+| `carrera` | Carrera profesional | Cualitativa nominal | Carreras de pregrado de UTEC | Variable de control |
+| `gama_procesador` | Gama del procesador | Cualitativa ordinal | Baja\<Media\<Alta | Independiente (OE1) |
+| `congelamientos_nivel` | Congelamientos en la última semana | Cualitativa ordinal | Nunca (0) \< Raramente (1) \< A veces (2-3) \< Frecuentemente (4 o más); conteo entre 0 y 15 | Independiente (OE2) |
+
+Además usamos el `ciclo` (solo para verificar que el estudiante sea de pregrado) y el `grupo` encuestador (identificador, no se analiza). El congelamiento se preguntó como un conteo semanal, pero lo tratamos como variable ordinal porque así se planteó en el OE2.
+
+## II.5 Limpieza
+
+La limpieza se hizo por etapas con un doble objetivo: dejar una base prolija, con un solo dato por fila y por columna, y perder la menor cantidad posible de información. Primero se seleccionaron y normalizaron las variables, luego se aplicó el criterio de población, se revisaron los valores fuera de rango y, por último, se definió cómo tratar los datos faltantes.
+
+### II.5.1 Selección de variables
+
+```{r paso0}
+raw <- read_csv("Encuesta.csv", show_col_types = FALSE)
+```
+
+```{r paso1}
+datos_g3 <- raw %>%
+  transmute(
+    id_respuesta           = row_number(),
+    grupo_encuestador      = `¿Qué grupo lo está encuestando?`,
+    carrera                = `¿Cuál es tu carrera profesional?`,
+    ciclo                  = `¿En qué ciclo académico estás actualmente? (Ej. 1,2,...,10)`,
+    gama_procesador        = `¿A qué gama pertenece el procesador de tu laptop?`,
+    fabricante_procesador  = `¿De qué marca/fabricante es el procesador de tu laptop?`,
+    ram_gb                 = `¿Cuál es la capacidad de memoria RAM instalada en tu laptop en GB?`,
+    programas_simultaneos  = `¿Cuántos programas o aplicaciones sueles tener abiertas en simultáneo mientras estudias?`,
+    congelamientos_semana  = `En la última semana, ¿Cuántas veces tuviste que pausar o cancelar una tarea académica porque tu laptop se trabó, se reinició sola, o se cerró un programa sin que tú lo quisieras? (da un número aproximado)`,
+    promedio_ponderado     = `¿Cuál es tu promedio ponderado acumulado actual? (ej. 15.4 )`,
+    tiempo_estudio_horas   = `¿Cuántas horas diarias, en promedio, dedicas a estudiar o hacer trabajos con tu laptop?`
+  )
+```
+
+```{r radiografia-fn}
+radiografia <- function(df) {
+  tibble(
+    variable = names(df),
+    tipo     = map_chr(df, ~ class(.x)[1]),
+    n_na     = map_int(df, ~ sum(is.na(.x))),
+    n_ceros  = map_int(df, ~ sum(suppressWarnings(as.numeric(.x)) == 0, na.rm = TRUE)),
+    n_unicos = map_int(df, ~ n_distinct(.x))
+  )
+}
+```
+
+De las preguntas del formulario nos quedamos con las que corresponden a las variables de nuestros objetivos y con algunas variables de apoyo: el ciclo, que sirve para verificar que el estudiante sea de pregrado, y el grupo encuestador y el número de respuesta, que solo permiten rastrear el origen de cada observación y no se analizan.
+
+En la revisión inicial no apareció ningún dato vacío, porque el formulario era obligatorio. Sin embargo, varias respuestas numéricas tenían valores imposibles y la pregunta del fabricante del procesador era de texto libre, por lo que había que ordenarla antes de analizarla.
+
+### II.5.2 Normalización
+
+```{r paso3}
+datos_norm <- datos_g3 %>%
+  mutate(
+    across(c(ciclo, ram_gb, programas_simultaneos, congelamientos_semana,
+             promedio_ponderado, tiempo_estudio_horas), as.numeric),
+    carrera         = str_trim(carrera),
+    gama_procesador = str_trim(gama_procesador),
+    fabricante_procesador = str_to_lower(str_trim(fabricante_procesador))
+  )
+```
+
+```{r paso3-fabricante}
+datos_norm <- datos_norm %>%
+  mutate(
+    fabricante_procesador = case_when(
+      str_detect(fabricante_procesador, "intel|inter")            ~ "Intel",
+      str_detect(fabricante_procesador, "amd|ryzen")               ~ "AMD",
+      str_detect(fabricante_procesador, "apple|\\bm1\\b|\\bm2\\b|\\bm3\\b") ~ "Apple",
+      str_detect(fabricante_procesador, "no s[eé]|no lo s[eé]|desconoc") ~ NA_character_,
+      TRUE ~ "Otro"
+    )
+  )
+
+# PARA DECIDIR COMO EQUIPO: la categoría "Otro" agrupa respuestas que no son un
+# fabricante de procesador (tarjetas gráficas, marcas de laptop, números sueltos, etc.).
+# Se dejó igual que en el avance; revisar si conviene tratarlas como NA.
+```
+
+```{r paso3-gama}
+datos_norm <- datos_norm %>%
+  mutate(
+    gama_procesador = case_when(
+      str_detect(gama_procesador, "Baja")  ~ "Baja",
+      str_detect(gama_procesador, "Media") ~ "Media",
+      str_detect(gama_procesador, "Alta")  ~ "Alta",
+      TRUE ~ NA_character_
+    ),
+    gama_procesador = factor(gama_procesador,
+                              levels = c("Baja", "Media", "Alta"),
+                              ordered = TRUE)
+  )
+```
+
+Las variables numéricas se convirtieron a formato numérico y los textos se limpiaron de espacios sobrantes. La gama del procesador se codificó como una variable ordenada (Baja \< Media \< Alta) y las respuestas "No lo sé" se registraron como dato faltante, porque no dicen nada sobre el equipo.
+
+El fabricante, al ser una pregunta abierta, llegó escrito de muchas formas distintas: marcas con errores de tipeo, modelos completos o solo la generación del procesador. Para ordenarlo agrupamos las respuestas en Intel, AMD y Apple reconociendo palabras clave (por ejemplo, "ryzen" en AMD o los chips M1 a M3 en Apple), dejamos como "Otro" lo que no encajaba en ninguna de esas marcas y registramos como dato faltante a quienes indicaron que no sabían.
+
+### II.5.3 Criterio de población
+
+```{r paso4}
+CICLO_MIN <- 1
+CICLO_MAX <- 10
+
+fuera_ciclo <- datos_norm %>% filter(ciclo < CICLO_MIN | ciclo > CICLO_MAX)
+
+datos_poblacion <- datos_norm %>%
+  filter(ciclo >= CICLO_MIN & ciclo <= CICLO_MAX)
+
+n_excluidos_ciclo <- nrow(datos_g3) - nrow(datos_poblacion)
+valores_excluidos_ciclo <- sort(unique(fuera_ciclo$ciclo))
+```
+
+Nuestra población son los estudiantes de pregrado, es decir, de 1.° a 10.° ciclo. Las respuestas con un ciclo fuera de ese rango (`r n_excluidos_ciclo` en total, con valores como `r paste(valores_excluidos_ciclo, collapse = ", ")`) no corresponden a la unidad muestral definida, así que se excluyeron de la base.
+
+### II.5.4 Rango de valores
+
+```{r paso5-limites}
+# Para este paso se mantienen los rangos planteados por el equipo en el avance.
+#
+# PARA DECIDIR COMO EQUIPO: dos rangos son difíciles de justificar de forma lógica y
+# podrían definirse con la regla del IQR (Q1 - 1.5*IQR, Q3 + 1.5*IQR):
+#  - programas_simultaneos: el máximo de 30 es muy amplio; con IQR el límite superior
+#    sería 8 programas (invalidaría unas 46 celdas más).
+#  - promedio_ponderado: el mínimo de 0.01 permite promedios poco creíbles (3, 5, 8);
+#    con IQR el límite inferior sería 10.35 (invalidaría unas 7 celdas más).
+limites <- tribble(
+  ~variable,                ~min_valido, ~max_valido, ~justificacion,
+  "ram_gb",                 2,           64,          "Las laptops de consumo van desde equipos básicos con 2 GB hasta equipos de alto rendimiento con 64 GB; valores como 0 o 6798 GB no corresponden a la RAM real de una laptop.",
+  "programas_simultaneos",  0,           30,          "Más de 30 programas abiertos a la vez no es una cantidad sostenible para estudiar con una laptop.",
+  "congelamientos_semana",  0,           15,          "No puede haber conteos negativos y más de 15 en una semana equivaldría a más de dos interrupciones por día, algo poco creíble.",
+  "promedio_ponderado",     0.01,        20,          "El promedio debe ser mayor que 0 y no puede superar 20, el máximo de la escala vigesimal de UTEC.",
+  "tiempo_estudio_horas",   0.01,        16,          "Un día tiene 24 horas y, descontando unas 8 de sueño, quedan 16 horas como máximo disponibles."
+)
+```
+
+```{r paso5-detectar}
+detectar_outliers <- function(df, var, min_v, max_v) {
+  x <- df[[var]]
+  x[!is.na(x) & (x < min_v | x > max_v)]
+}
+
+reporte_outliers <- limites %>%
+  mutate(
+    valores_excluidos = pmap(list(variable, min_valido, max_valido),
+                              ~ detectar_outliers(datos_poblacion, ..1, ..2, ..3)),
+    n_excluidos = map_int(valores_excluidos, length),
+    valores_texto = map_chr(valores_excluidos,
+                             ~ if (length(.x) == 0) "—" else paste(sort(.x), collapse = ", "))
+  )
+```
+
+Para cada variable numérica definimos un rango de valores razonable y lo justificamos en la @tbl-limites. Los valores que quedaron fuera de rango no se eliminaron junto con toda la fila: solo se invalidó esa celda, convirtiéndola en dato faltante, de modo que el resto de las respuestas del estudiante se conserva.
+
+```{r}
+#| label: tbl-limites
+#| tbl-cap: "Rango válido de cada variable numérica, su justificación y los valores invalidados."
+reporte_outliers %>%
+  transmute(
+    Variable = variable,
+    `Rango válido` = glue("[{min_valido}, {max_valido}]"),
+    `Justificación` = justificacion,
+    `Valores invalidados` = valores_texto
+  ) %>%
+  kable()
+```
+
+```{r paso5-aplicar}
+datos_out <- datos_poblacion
+
+for (i in seq_len(nrow(limites))) {
+  v      <- limites$variable[i]
+  lo     <- limites$min_valido[i]
+  hi     <- limites$max_valido[i]
+  fuera  <- datos_out[[v]] < lo | datos_out[[v]] > hi
+  datos_out[[v]][which(fuera)] <- NA
+}
+
+total_marcados <- sum(reporte_outliers$n_excluidos)
+```
+
+La mayoría de estos valores corresponde a errores de digitación o respuestas poco serias, como una memoria de 6798 GB o 9853 congelamientos en una semana.
+
+### II.5.5 Variabilidad
+
+```{r paso6}
+tabla_carrera <- datos_out %>% count(carrera, sort = TRUE)
+
+UMBRAL_BAJA_VARIABILIDAD <- 5
+
+categorias_raras <- tabla_carrera %>% filter(n < UMBRAL_BAJA_VARIABILIDAD)
+```
+
+Se revisó que ninguna variable categórica tuviera una variabilidad casi nula. En `carrera`, la única categoría con muy pocas respuestas es `r paste(categorias_raras$carrera, collapse = ", ")`. Como la carrera no es protagonista de ningún objetivo específico, decidimos conservar la categoría tal cual, sin agrupar.
+
+### II.5.6 Datos faltantes
+
+```{r paso7}
+vars_analisis <- c("gama_procesador", "fabricante_procesador", "carrera", "ram_gb",
+                    "programas_simultaneos", "congelamientos_semana",
+                    "promedio_ponderado", "tiempo_estudio_horas")
+
+n_total     <- nrow(datos_out)
+n_completos <- datos_out %>% drop_na(all_of(vars_analisis)) %>% nrow()
+```
+
+```{r paso7-aplicar}
+# Se conservan las filas aunque tengan datos faltantes, salvo las que tengan una cantidad
+# alta de NA (la mitad o más de las variables de análisis).
+UMBRAL_NA <- length(vars_analisis) / 2
+
+datos_limpios <- datos_out %>%
+  mutate(n_na_fila = rowSums(is.na(across(all_of(vars_analisis))))) %>%
+  filter(n_na_fila < UMBRAL_NA) %>%
+  select(-n_na_fila)
+```
+
+```{r paso8}
+rad_final <- radiografia(datos_limpios %>% select(all_of(vars_analisis)))
+```
+
+No imputamos ningún valor. La política que seguimos fue conservar las filas aunque tuvieran algún dato faltante y descartar solo aquellas en las que faltaba la mitad o más de las variables de análisis, ya que casi no aportan información. Descartar todas las filas con algún dato faltante nos habría hecho perder muchas respuestas que sí son útiles para el resto de las variables. Por eso, cada análisis de este informe usa las observaciones disponibles de las variables que involucra.
+
+```{r}
+#| label: tbl-na
+#| tbl-cap: "Datos faltantes y observaciones válidas por variable en la base final."
+rad_final %>%
+  transmute(Variable = variable, Tipo = tipo,
+            `Datos faltantes` = n_na,
+            `Observaciones válidas` = nrow(datos_limpios) - n_na) %>%
+  kable()
+```
+
+La base final tiene `r nrow(datos_limpios)` observaciones, de las cuales `r sum(datos_limpios$grupo_encuestador == "Grupo 3")` corresponden al Grupo 3, y todas las variables superan las 150 observaciones limpias que exige el curso (la que menos tiene cuenta con `r min(nrow(datos_limpios) - rad_final$n_na)`).
+
+### II.5.7 Codificación final
+
+```{r recodificar-congelamientos}
+datos_limpios <- datos_limpios %>%
+  mutate(
+    congelamientos_nivel = case_when(
+      congelamientos_semana == 0 ~ "Nunca",
+      congelamientos_semana == 1 ~ "Raramente",
+      congelamientos_semana %in% 2:3 ~ "A veces",
+      congelamientos_semana >= 4 ~ "Frecuentemente"
+    ),
+    congelamientos_nivel = factor(congelamientos_nivel,
+                                   levels = c("Nunca", "Raramente", "A veces", "Frecuentemente"),
+                                   ordered = TRUE)
+  )
+```
+
+```{r codificacion-final}
+datos_limpios <- datos_limpios %>%
+  mutate(
+    # Nominales -> factor sin orden
+    fabricante_procesador = factor(fabricante_procesador),
+    carrera                = factor(carrera),
+    # Ordinales -> factor ordenado (ya quedaron así arriba, se confirma)
+    gama_procesador        = factor(gama_procesador, ordered = TRUE),
+    congelamientos_nivel   = factor(congelamientos_nivel, ordered = TRUE),
+    # Discretas -> integer
+    ram_gb                 = as.integer(ram_gb),
+    programas_simultaneos  = as.integer(programas_simultaneos),
+    # Continuas -> double
+    promedio_ponderado     = as.double(promedio_ponderado),
+    tiempo_estudio_horas   = as.double(tiempo_estudio_horas)
+  )
+```
+
+Por último, el número de congelamientos de la última semana, que se preguntó como un conteo, se recodificó en cuatro niveles ordenados (Nunca, Raramente, A veces y Frecuentemente), porque así se definió en el objetivo específico 2. Cada variable quedó codificada según su tipo, como se indica en la tabla de la sección II.4.
+
+# III. Análisis descriptivo
+
+Todo el análisis de esta sección se calcula sobre la muestra efectiva de toda la sección (`r nrow(datos_limpios)` observaciones), no solo la del Grupo 3. Se describe al menos una variable de cada tipo y, en el análisis de interacción, los cruces que responden a los dos objetivos específicos. Como conservamos las filas con datos faltantes, cada gráfico y cada descriptor usa las observaciones disponibles de sus variables.
+
+```{r helpers-descriptivos}
+moda_categorica <- function(x) {
+  tab <- table(x)
+  names(tab)[which.max(tab)]
+}
+
+cv <- function(x) sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100
+
+resumen_cuanti <- function(x) {
+  tibble(
+    n        = sum(!is.na(x)),
+    media    = mean(x, na.rm = TRUE),
+    mediana  = median(x, na.rm = TRUE),
+    sd       = sd(x, na.rm = TRUE),
+    varianza = var(x, na.rm = TRUE),
+    p25      = quantile(x, 0.25, na.rm = TRUE),
+    p75      = quantile(x, 0.75, na.rm = TRUE),
+    iqr      = IQR(x, na.rm = TRUE),
+    cv       = cv(x),
+    min      = min(x, na.rm = TRUE),
+    max      = max(x, na.rm = TRUE)
+  )
+}
+
+interpretar_cuanti <- function(nombre, s, descripcion = "") {
+  calidad_cv <- if (s$cv < 15) "baja" else if (s$cv < 33) "moderada" else "alta"
+  descriptor_sugerido <- if (s$cv < 33) "la media (o la mediana)" else "la mediana, por la alta dispersión"
+  glue(
+    "En promedio, los estudiantes reportan {round(s$media,2)} {descripcion}, aunque el 25% más ",
+    "alto reporta más de {round(s$p75,2)} y el 25% más bajo reporta {round(s$p25,2)} o menos ",
+    "(IQR = {round(s$iqr,2)}). La mediana es {round(s$mediana,2)}, es decir, la mitad de los ",
+    "estudiantes está por debajo de ese valor. La variabilidad relativa es ",
+    "**{calidad_cv}** (CV = {round(s$cv,1)}%), por lo que {descriptor_sugerido} ",
+    "{ifelse(s$cv<33,'es un descriptor adecuado','resulta más representativa que la media')} ",
+    "para resumir `{nombre}`."
+  )
+}
+
+interpretar_categorica <- function(nombre, tabla, ordinal = FALSE) {
+  top <- tabla %>% slice_max(n, n = 1)
+  glue(
+    "La categoría más frecuente de `{nombre}` es **{top[[1]][1]}**, con ",
+    "{top$n[1]} de {sum(tabla$n)} respuestas ({round(100*top$n[1]/sum(tabla$n),1)}%). ",
+    "{ifelse(ordinal, 'Al tratarse de una variable ordinal, el orden de las categorías es informativo: se puede leer la tabla como una progresión desde el nivel más bajo hasta el más alto.', 'Al ser nominal, las categorías no tienen un orden intrínseco, por lo que solo se compara su frecuencia relativa.')}"
+  )
+}
+```
+
+## III.1 Análisis univariado
+
+### III.1.1 Variables nominales
+
+### `carrera`
+
+```{r uni-nominal-carrera}
+tabla_carrera_final <- datos_limpios %>%
+  count(carrera, sort = TRUE) %>%
+  mutate(proporcion = round(100 * n / sum(n), 1))
+```
+
+```{r}
+#| label: fig-carrera
+#| fig-cap: "Distribución de los estudiantes por carrera."
+#| fig-height: 5.5
+ggplot(tabla_carrera_final, aes(x = n, y = fct_reorder(carrera, n))) +
+  geom_col(fill = "#2C7FB8") +
+  geom_text(aes(label = n), hjust = -0.2, size = 3.5) +
+  scale_x_continuous(expand = expansion(mult = c(0, .1))) +
+  labs(title = "Estudiantes encuestados por carrera",
+       x = "Número de estudiantes", y = "Carrera") +
+  theme_minimal()
+```
+
+```{r uni-nominal-carrera-texto, results='asis'}
+cat(interpretar_categorica("carrera", tabla_carrera_final, ordinal = FALSE))
+```
+
+### III.1.2 Variables ordinales
+
+```{r colores}
+# Colores: cada variable categórica conserva su paleta en todos los gráficos
+col_gama   <- c("Baja" = "#66C2A5", "Media" = "#3182BD", "Alta" = "#54278F")
+col_congel <- c("Nunca" = "#FEB24C", "Raramente" = "#FD8D3C",
+                "A veces" = "#E31A1C", "Frecuentemente" = "#800026")
+```
+
+### `gama_procesador`
+
+```{r uni-ordinal-gama}
+tabla_gama2 <- datos_limpios %>%
+  drop_na(gama_procesador) %>%
+  count(gama_procesador) %>%
+  mutate(proporcion = round(100 * n / sum(n), 1))
+```
+
+```{r}
+#| label: fig-gama
+#| fig-cap: "Distribución de la gama del procesador."
+ggplot(drop_na(datos_limpios, gama_procesador), aes(x = gama_procesador, fill = gama_procesador)) +
+  geom_bar(show.legend = FALSE) +
+  scale_fill_manual(values = col_gama) +
+  labs(title = "Gama del procesador (variable ordinal)",
+       x = "Gama", y = "Número de estudiantes") +
+  theme_minimal()
+```
+
+```{r}
+#| label: tbl-gama
+#| tbl-cap: "Frecuencia de la gama del procesador."
+kable(tabla_gama2, col.names = c("Gama", "n", "Porcentaje (%)"))
+```
+
+```{r uni-ordinal-gama-texto, results='asis'}
+cat(interpretar_categorica("gama_procesador", tabla_gama2, ordinal = TRUE))
+```
+
+### `congelamientos_nivel`
+
+```{r uni-ordinal-congelamientos}
+tabla_congel2 <- datos_limpios %>%
+  drop_na(congelamientos_nivel) %>%
+  count(congelamientos_nivel) %>%
+  mutate(proporcion = round(100 * n / sum(n), 1))
+```
+
+```{r}
+#| label: fig-congel
+#| fig-cap: "Distribución de la frecuencia de congelamientos semanales."
+ggplot(drop_na(datos_limpios, congelamientos_nivel), aes(x = congelamientos_nivel, fill = congelamientos_nivel)) +
+  geom_bar(show.legend = FALSE) +
+  scale_fill_manual(values = col_congel) +
+  labs(title = "Frecuencia de congelamientos semanales (variable ordinal)",
+       x = "Nivel", y = "Número de estudiantes") +
+  theme_minimal()
+```
+
+```{r}
+#| label: tbl-congel
+#| tbl-cap: "Frecuencia de los congelamientos semanales."
+kable(tabla_congel2, col.names = c("Nivel", "n", "Porcentaje (%)"))
+```
+
+```{r uni-ordinal-congelamientos-texto, results='asis'}
+cat(interpretar_categorica("congelamientos_nivel", tabla_congel2, ordinal = TRUE))
+```
+
+### III.1.3 Variables discretas
+
+### `ram_gb`
+
+```{r uni-discreta-ram}
+s_ram <- resumen_cuanti(datos_limpios$ram_gb)
+```
+
+```{r}
+#| label: fig-ram
+#| fig-cap: "Distribución de la memoria RAM instalada."
+ggplot(drop_na(datos_limpios, ram_gb), aes(x = factor(ram_gb))) +
+  geom_bar(fill = "#2C7FB8") +
+  labs(title = "Memoria RAM instalada (variable discreta)",
+       x = "RAM (GB)", y = "Número de estudiantes") +
+  theme_minimal()
+```
+
+```{r}
+#| label: tbl-ram
+#| tbl-cap: "Descriptores de la memoria RAM (GB)."
+s_ram %>%
+  select(n, media, mediana, sd, iqr, cv) %>%
+  kable(digits = 2, col.names = c("n", "Media", "Mediana", "Desv. est.", "IQR", "CV (%)"))
+```
+
+```{r uni-discreta-ram-texto, results='asis'}
+cat(interpretar_cuanti("ram_gb", s_ram, "GB de memoria RAM instalada en su laptop"))
+```
+
+### III.1.4 Variables continuas
+
+### `promedio_ponderado`
+
+```{r uni-continua-promedio}
+s_prom <- resumen_cuanti(datos_limpios$promedio_ponderado)
+```
+
+```{r}
+#| label: fig-promedio
+#| fig-cap: "Distribución del promedio ponderado acumulado."
+ggplot(drop_na(datos_limpios, promedio_ponderado), aes(x = promedio_ponderado)) +
+  geom_histogram(bins = 15, fill = "#41AB5D", color = "white") +
+  labs(title = "Promedio ponderado acumulado (variable continua)",
+       x = "Promedio ponderado", y = "Número de estudiantes") +
+  theme_minimal()
+```
+
+```{r}
+#| label: tbl-promedio
+#| tbl-cap: "Descriptores del promedio ponderado acumulado."
+s_prom %>%
+  select(n, media, mediana, sd, iqr, cv) %>%
+  kable(digits = 2, col.names = c("n", "Media", "Mediana", "Desv. est.", "IQR", "CV (%)"))
+```
+
+```{r uni-continua-promedio-texto, results='asis'}
+cat(interpretar_cuanti("promedio_ponderado", s_prom, "puntos de promedio ponderado"))
+```
+
+## III.2 Análisis de interacción (multivariado)
+
+Los pares se seleccionaron para responder directamente a los dos objetivos específicos: OE1 (gama del procesador y programas simultáneos vs. promedio) y OE2 (RAM y congelamientos vs. promedio).
+
+### III.2.1 Par categórica–categórica
+
+### `gama_procesador` × `congelamientos_nivel`
+
+```{r multi-cat-cat}
+tabla_cruzada <- datos_limpios %>%
+  drop_na(gama_procesador, congelamientos_nivel) %>%
+  count(gama_procesador, congelamientos_nivel) %>%
+  group_by(gama_procesador) %>%
+  mutate(proporcion = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+```
+
+```{r}
+#| label: tbl-cruzada
+#| tbl-cap: "Estudiantes por gama del procesador y nivel de congelamientos."
+tabla_cruzada %>%
+  select(gama_procesador, congelamientos_nivel, n, proporcion) %>%
+  arrange(gama_procesador, congelamientos_nivel) %>%
+  kable(col.names = c("Gama", "Congelamientos", "n", "Porcentaje dentro de la gama (%)"))
+```
+
+```{r}
+#| label: fig-cat-cat
+#| fig-cap: "Congelamientos semanales según la gama del procesador."
+ggplot(tabla_cruzada, aes(x = gama_procesador, y = proporcion, fill = congelamientos_nivel)) +
+  geom_col(position = "fill") +
+  scale_fill_manual(values = col_congel) +
+  labs(title = "Congelamientos según gama del procesador",
+       x = "Gama del procesador", y = "Proporción",
+       fill = "Congelamientos") +
+  theme_minimal()
+```
+
+```{r multi-cat-cat-texto, results='asis'}
+frecuentes_por_gama <- tabla_cruzada %>%
+  filter(congelamientos_nivel == "Frecuentemente") %>%
+  select(gama_procesador, proporcion)
+
+gama_mas_frecuente <- frecuentes_por_gama %>% slice_max(proporcion, n = 1)
+gama_menos_frecuente <- frecuentes_por_gama %>% slice_min(proporcion, n = 1)
+
+cat(glue(
+  "Entre los estudiantes con gama **{gama_mas_frecuente$gama_procesador[1]}**, el ",
+  "{gama_mas_frecuente$proporcion[1]}% reporta congelamientos \"Frecuentemente\", frente a solo ",
+  "{gama_menos_frecuente$proporcion[1]}% entre los de gama **{gama_menos_frecuente$gama_procesador[1]}**. ",
+  "Esto sugiere que la gama del procesador y la frecuencia de congelamientos **no se distribuyen ",
+  "de forma homogénea** entre sí, es decir, parecen estar asociadas."
+))
+```
+
+### III.2.2 Pares numérica–numérica
+
+Para no analizar cada par por separado, en cada gráfico se pintan los puntos según una variable categórica del mismo objetivo específico. Así, cada figura muestra tres variables a la vez: dos numéricas y la categoría que las acompaña.
+
+### `programas_simultaneos` × `promedio_ponderado` según `gama_procesador` (OE1)
+
+```{r multi-num-num-oe1}
+cor_prog_prom <- cor(datos_limpios$programas_simultaneos, datos_limpios$promedio_ponderado,
+                      use = "complete.obs")
+
+cor_prog_gama <- datos_limpios %>%
+  drop_na(gama_procesador, programas_simultaneos, promedio_ponderado) %>%
+  group_by(gama_procesador) %>%
+  summarise(n = n(), r = cor(programas_simultaneos, promedio_ponderado), .groups = "drop")
+```
+
+```{r}
+#| label: fig-oe1
+#| fig-cap: "Programas abiertos en simultáneo y promedio ponderado, según la gama del procesador."
+ggplot(drop_na(datos_limpios, gama_procesador, programas_simultaneos, promedio_ponderado),
+       aes(x = programas_simultaneos, y = promedio_ponderado)) +
+  geom_jitter(aes(color = gama_procesador), alpha = 0.6, width = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  scale_color_manual(values = col_gama) +
+  labs(title = "OE1: Programas simultáneos vs. promedio ponderado",
+       x = "Programas abiertos en simultáneo", y = "Promedio ponderado",
+       color = "Gama del procesador") +
+  theme_minimal()
+```
+
+```{r}
+#| label: tbl-cor-oe1
+#| tbl-cap: "Correlación entre programas simultáneos y promedio ponderado, por gama del procesador."
+kable(cor_prog_gama, digits = 2, col.names = c("Gama", "n", "Correlación (r)"))
+```
+
+```{r multi-num-num-oe1-texto, results='asis'}
+fuerza <- function(r) {
+  a <- abs(r)
+  if (a < 0.1) "prácticamente nula"
+  else if (a < 0.3) "débil"
+  else if (a < 0.5) "moderada"
+  else "fuerte"
+}
+sentido <- function(r) ifelse(r >= 0, "positiva (a más programas abiertos, mayor promedio)",
+                               "negativa (a más programas abiertos, menor promedio)")
+
+cat(glue(
+  "La correlación de Pearson entre `programas_simultaneos` y `promedio_ponderado` es ",
+  "r = {round(cor_prog_prom,3)}, una relación **{fuerza(cor_prog_prom)}** y ",
+  "**{sentido(cor_prog_prom)}**, en línea con lo que explora el OE1."
+))
+```
+
+### `ram_gb` × `promedio_ponderado` según `congelamientos_nivel` (OE2)
+
+```{r multi-num-num-oe2}
+cor_ram_prom <- cor(datos_limpios$ram_gb, datos_limpios$promedio_ponderado,
+                     use = "complete.obs")
+
+cor_ram_congel <- datos_limpios %>%
+  drop_na(congelamientos_nivel, ram_gb, promedio_ponderado) %>%
+  group_by(congelamientos_nivel) %>%
+  summarise(n = n(), r = cor(ram_gb, promedio_ponderado), .groups = "drop")
+```
+
+```{r}
+#| label: fig-oe2
+#| fig-cap: "Memoria RAM y promedio ponderado, según la frecuencia de congelamientos."
+ggplot(drop_na(datos_limpios, congelamientos_nivel, ram_gb, promedio_ponderado),
+       aes(x = ram_gb, y = promedio_ponderado)) +
+  geom_jitter(aes(color = congelamientos_nivel), alpha = 0.6, width = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  scale_color_manual(values = col_congel) +
+  labs(title = "OE2: Memoria RAM vs. promedio ponderado",
+       x = "RAM (GB)", y = "Promedio ponderado",
+       color = "Congelamientos") +
+  theme_minimal()
+```
+
+```{r}
+#| label: tbl-cor-oe2
+#| tbl-cap: "Correlación entre RAM y promedio ponderado, por frecuencia de congelamientos."
+kable(cor_ram_congel, digits = 2, col.names = c("Congelamientos", "n", "Correlación (r)"))
+```
+
+```{r multi-num-num-oe2-texto, results='asis'}
+cat(glue(
+  "La correlación de Pearson entre `ram_gb` y `promedio_ponderado` es ",
+  "r = {round(cor_ram_prom,3)}, una relación **{fuerza(cor_ram_prom)}** y ",
+  "**{ifelse(cor_ram_prom >= 0, 'positiva (a más RAM, mayor promedio)', 'negativa (a más RAM, menor promedio)')}**, ",
+  "en línea con lo que explora el OE2."
+))
+```
+
+### III.2.3 Pares categórica–numérica
+
+### `gama_procesador` × `promedio_ponderado`
+
+```{r multi-cat-num-oe1}
+resumen_gama <- datos_limpios %>%
+  drop_na(gama_procesador, promedio_ponderado) %>%
+  group_by(gama_procesador) %>%
+  summarise(media_promedio = mean(promedio_ponderado), sd_promedio = sd(promedio_ponderado),
+             n = n(), .groups = "drop")
+```
+
+```{r}
+#| label: tbl-resumen-gama
+#| tbl-cap: "Promedio ponderado según la gama del procesador."
+kable(resumen_gama, digits = 2, col.names = c("Gama", "Media", "Desv. est.", "n"))
+```
+
+```{r}
+#| label: fig-box-gama
+#| fig-cap: "Promedio ponderado según la gama del procesador."
+ggplot(drop_na(datos_limpios, gama_procesador, promedio_ponderado),
+       aes(x = gama_procesador, y = promedio_ponderado, fill = gama_procesador)) +
+  geom_boxplot(show.legend = FALSE) +
+  scale_fill_manual(values = col_gama) +
+  labs(title = "OE1: Promedio ponderado según gama del procesador",
+       x = "Gama del procesador", y = "Promedio ponderado") +
+  theme_minimal()
+```
+
+```{r multi-cat-num-oe1-texto, results='asis'}
+UMBRAL_N_CHICO <- 20
+
+top_gama <- resumen_gama %>% slice_max(media_promedio, n = 1)
+bottom_gama <- resumen_gama %>% slice_min(media_promedio, n = 1)
+
+grupos_chicos <- resumen_gama %>% filter(n < UMBRAL_N_CHICO)
+
+cat(glue(
+  "El grupo con gama **{top_gama$gama_procesador[1]}** tiene el promedio ponderado medio más ",
+  "alto ({round(top_gama$media_promedio[1],2)}, n = {top_gama$n[1]}), mientras que el grupo con ",
+  "gama **{bottom_gama$gama_procesador[1]}** tiene el más bajo ",
+  "({round(bottom_gama$media_promedio[1],2)}, n = {bottom_gama$n[1]}), una diferencia de ",
+  "{round(top_gama$media_promedio[1]-bottom_gama$media_promedio[1],2)} puntos."
+))
+
+if (nrow(grupos_chicos) > 0) {
+  cat(glue(
+    "\n\n **Advertencia de tamaño de muestra:** ",
+    "{paste(glue('`{grupos_chicos$gama_procesador}` (n = {grupos_chicos$n})'), collapse=', ')} ",
+    "tiene{ifelse(nrow(grupos_chicos)==1,'','n')} menos de {UMBRAL_N_CHICO} observaciones, por lo ",
+    "que su media es poco estable y la comparación entre grupos debe tomarse con cautela: no ",
+    "necesariamente refleja un patrón real asociado al OE1, podría deberse al tamaño de muestra ",
+    "reducido de ese grupo."
+  ))
+} else {
+  cat(" Todos los grupos tienen un tamaño de muestra razonable, lo que da mayor confianza a la comparación (consistente con el OE1).")
+}
+```
+
+### `congelamientos_nivel` × `promedio_ponderado`
+
+```{r multi-cat-num-oe2}
+resumen_congel <- datos_limpios %>%
+  drop_na(congelamientos_nivel, promedio_ponderado) %>%
+  group_by(congelamientos_nivel) %>%
+  summarise(media_promedio = mean(promedio_ponderado), sd_promedio = sd(promedio_ponderado),
+             n = n(), .groups = "drop")
+```
+
+```{r}
+#| label: tbl-resumen-congel
+#| tbl-cap: "Promedio ponderado según la frecuencia de congelamientos."
+kable(resumen_congel, digits = 2, col.names = c("Congelamientos", "Media", "Desv. est.", "n"))
+```
+
+```{r}
+#| label: fig-box-congel
+#| fig-cap: "Promedio ponderado según la frecuencia de congelamientos."
+ggplot(drop_na(datos_limpios, congelamientos_nivel, promedio_ponderado),
+       aes(x = congelamientos_nivel, y = promedio_ponderado, fill = congelamientos_nivel)) +
+  geom_boxplot(show.legend = FALSE) +
+  scale_fill_manual(values = col_congel) +
+  labs(title = "OE2: Promedio ponderado según frecuencia de congelamientos",
+       x = "Frecuencia de congelamientos", y = "Promedio ponderado") +
+  theme_minimal()
+```
+
+```{r multi-cat-num-oe2-texto, results='asis'}
+top_congel <- resumen_congel %>% slice_max(media_promedio, n = 1)
+bottom_congel <- resumen_congel %>% slice_min(media_promedio, n = 1)
+grupos_chicos_congel <- resumen_congel %>% filter(n < UMBRAL_N_CHICO)
+
+cat(glue(
+  "El grupo que reporta congelamientos \"{bottom_congel$congelamientos_nivel[1]}\" tiene el ",
+  "promedio ponderado medio más bajo ({round(bottom_congel$media_promedio[1],2)}, n = {bottom_congel$n[1]}), mientras que ",
+  "\"{top_congel$congelamientos_nivel[1]}\" tiene el más alto ",
+  "({round(top_congel$media_promedio[1],2)}, n = {top_congel$n[1]}), lo que aporta evidencia descriptiva para el OE2."
+))
+
+if (nrow(grupos_chicos_congel) > 0) {
+  cat(glue(
+    "\n\n **Advertencia de tamaño de muestra:** ",
+    "{paste(glue('`{grupos_chicos_congel$congelamientos_nivel}` (n = {grupos_chicos_congel$n})'), collapse=', ')} ",
+    "tiene{ifelse(nrow(grupos_chicos_congel)==1,'','n')} menos de {UMBRAL_N_CHICO} observaciones, ",
+    "por lo que esa comparación puntual debe tomarse con cautela."
+  ))
+}
+```
+
+# IV. Conclusiones
+
+- **Datos:** después de la limpieza quedaron `r nrow(datos_limpios)` observaciones de estudiantes de pregrado, `r sum(datos_limpios$grupo_encuestador == "Grupo 3")` de ellas del Grupo 3. Conservar las filas con datos faltantes nos permitió no perder las respuestas que sí aportan información para cada variable.
+- **Rendimiento:** el promedio ponderado típico de la muestra es `r round(s_prom$mediana, 1)` y varía poco entre estudiantes (CV = `r round(s_prom$cv, 1)`%), por lo que los estudiantes son bastante parecidos en rendimiento.
+- **OE1:** la cantidad de programas abiertos tiene una relación `r fuerza(cor_prog_prom)` con el promedio (r = `r round(cor_prog_prom, 2)`) y las gamas Media y Alta tienen promedios casi iguales. La gama Baja se ve algo mejor, pero tiene pocos casos, por lo que ese resultado no es concluyente.
+- **OE2:** la memoria RAM tiene una relación `r fuerza(cor_ram_prom)` con el promedio (r = `r round(cor_ram_prom, 2)`) y los estudiantes con más congelamientos no presentan promedios claramente más bajos.
+- **Resultado interesante:** en esta muestra, las características técnicas de la laptop no parecen explicar por sí solas el rendimiento académico. Lo que sí se observa es que la gama Alta tiene más estudiantes sin congelamientos, pero esa ventaja técnica no se refleja en el promedio.
+- **Limitaciones:** el muestreo fue por conveniencia, así que los resultados describen a la muestra y no se pueden generalizar directamente a todo UTEC. Además, los descriptores muestran asociación y no causalidad. En el PG2 se podrán modelar estas variables y evaluar si las diferencias observadas son estadísticamente relevantes.
